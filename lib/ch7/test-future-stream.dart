@@ -20,20 +20,22 @@ Widget getWidget(List<Article> datas) {
   return ListView.builder(
     itemCount: datas.length,
     itemBuilder: (BuildContext context, int position) {
-      Column resultWidget=Column(
+      Column resultWidget = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Padding(
               padding: EdgeInsets.only(left: 10, right: 10, top: 5, bottom: 5),
-              child: Text(datas[position].title, style: TextStyle(fontWeight: FontWeight.bold),)
+              child: Text(datas[position].title,
+                style: TextStyle(fontWeight: FontWeight.bold),)
           ),
           Padding(
               padding: EdgeInsets.only(left: 10, right: 10, top: 5, bottom: 5),
-              child: Text(datas[position].publishedAt, style: TextStyle(color: Colors.grey),)
+              child: Text(datas[position].publishedAt,
+                style: TextStyle(color: Colors.grey),)
           ),
           Padding(
             padding: EdgeInsets.only(left: 10, right: 10, top: 5, bottom: 5),
-            child: Text(datas[position].description, ),
+            child: Text(datas[position].description,),
           ),
           Padding(
             padding: EdgeInsets.only(left: 10, right: 10, top: 5, bottom: 5),
@@ -42,7 +44,7 @@ Widget getWidget(List<Article> datas) {
 
         ],
       );
-      if(position!=datas.length-1){
+      if (position != datas.length - 1) {
         resultWidget.children.add(Container(
             height: 15,
             color: Colors.grey
@@ -52,7 +54,6 @@ Widget getWidget(List<Article> datas) {
     },
   );
 }
-
 
 
 String _url =
@@ -65,7 +66,8 @@ Future<List<Article>> getServerData(String page) async {
   print(response.body.toString());
   List datas = json.decode(response.body)['articles'];
   List<Article> result = [];
-  datas.forEach((item) => {
+  datas.forEach((item) =>
+  {
     result.add(Article(item['source']['name'], item['title'],
         item['description'], item['urlToImage'], item['publishedAt']))
   });
@@ -74,7 +76,21 @@ Future<List<Article>> getServerData(String page) async {
 
 class FutureWidget extends StatelessWidget {
 
-
+  @override
+  Widget build(BuildContext context) {
+    // TODO: implement build
+    return FutureBuilder(
+        future: getServerData('1'),
+        builder: (context, snpashot) {
+          if (snpashot.hasData) {
+            return getWidget(snpashot?.data ?? []);
+          } else if (snpashot.hasError) {
+            return Text('${snpashot.error}');
+          }
+          return CircularProgressIndicator();
+        }
+    );
+  }
 }
 
 
@@ -86,9 +102,49 @@ class StreamWidget extends StatefulWidget {
 class StreamState extends State<StreamWidget> {
   List<Article> list = [];
 
+  StreamController<List<Article>> streamController = StreamController();
 
+  void getData(int i) async {
+    int page = ++i;
+    await getServerData(page.toString())
+        .then((value) {
+      streamController.add(value);
+    });
+  }
+
+  periodicStream() async {
+    Duration duration = Duration(seconds: 5);
+    Stream stream = Stream.periodic(duration, getData);
+
+    stream = stream.take(3);
+    stream.listen((event) {
+      print('서버요청 ');
+    });
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    periodicStream();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // TODO: implement build
+    return StreamBuilder(
+        stream: streamController.stream,
+        builder: (context, AsyncSnapshot snapshot) {
+          if (snapshot.hasData) {
+            list.addAll(snapshot.data);
+            return getWidget(list);
+          } else if (snapshot.hasError) {
+            return Text('${snapshot.error}');
+          }
+          return CircularProgressIndicator();
+        }
+    );
+  }
 }
-
 
 void main() => runApp(MyApp());
 
